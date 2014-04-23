@@ -15,7 +15,7 @@ open_jira_issue () {
   tmp_function="$(functions browser-open)"
   browser-open () {
     local error_file="/tmp/jira.zsh.error"
-  if [[ "$OSTYPE" = darwin* ]]; then
+    if [[ "$OSTYPE" = darwin* ]]; then
       open $@ 2> $error_file
     else
       xdg-open $@ 2> $error_file
