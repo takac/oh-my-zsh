@@ -11,12 +11,19 @@
 # Usage: jira           # opens a new issue
 #        jira ABC-123   # Opens an existing issue
 open_jira_issue () {
-  local open_cmd
-  if [[ "$OSTYPE" = darwin* ]]; then
-    open_cmd='open'
-  else
-    open_cmd='xdg-open'
-  fi
+  # Make sure we don't override a function
+  tmp_function="$(functions browser-open)"
+  browser-open () {
+    local error_file="/tmp/jira.zsh.error"
+    if [[ "$OSTYPE" = darwin* ]]; then
+      open $@ 2> $error_file
+    else
+      xdg-open $@ 2> $error_file
+    fi
+    if [[ $? != 0 ]]; then
+      cat $error_file 2>&1
+    fi
+  }
 
   if [ -f .jira-url ]; then
     jira_url=$(cat .jira-url)
@@ -39,16 +46,20 @@ open_jira_issue () {
 
   if [ -z "$1" ]; then
     echo "Opening new issue"
-    $open_cmd "${jira_url}/secure/CreateIssue!default.jspa"
+    browser-open "${jira_url}/secure/CreateIssue!default.jspa"
   elif [[ "$1" = "assigned" || "$1" = "reported" ]]; then
     jira_query $@
   else
     echo "Opening issue #$1"
     if [[ "x$JIRA_RAPID_BOARD" = "xtrue" ]]; then
-      $open_cmd  "$jira_url/issues/$jira_prefix$1"
+      browser-open "$jira_url/issues/$jira_prefix$1"
     else
-      $open_cmd  "$jira_url/browse/$jira_prefix$1"
+      browser-open  "$jira_url/browse/$jira_prefix$1"
     fi
+  fi
+  unset -f browser-open
+  if [ -n "${tmp_function}" ]; then
+      eval "${tmp_function}"
   fi
 }
 
@@ -83,7 +94,7 @@ jira_query () {
         return 1
     fi
     echo "Browsing issues ${verb} ${preposition} ${jira_name}"
-    $open_cmd "${jira_url}/secure/IssueNavigator.jspa?reset=true&jqlQuery=${lookup}+%3D+%22${jira_name}%22+AND+resolution+%3D+unresolved+ORDER+BY+priority+DESC%2C+created+ASC"
+    browser-open "${jira_url}/secure/IssueNavigator.jspa?reset=true&jqlQuery=${lookup}+%3D+%22${jira_name}%22+AND+resolution+%3D+unresolved+ORDER+BY+priority+DESC%2C+created+ASC"
 }
 
 alias jira='open_jira_issue'
